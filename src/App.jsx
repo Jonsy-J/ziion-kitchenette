@@ -2,11 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, Outlet, useOutletContext, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   Utensils, LayoutDashboard, ChefHat, Package, MessageSquare, 
   Search, Star, Plus, Minus, ArrowRight, ShoppingCart, 
   ChevronRight, X, Trash2, ChevronLeft, Banknote, 
-  ShieldCheck, Loader2, CheckCircle2, TrendingUp, AlertTriangle, Lock, SearchIcon
+  ShieldCheck, Loader2, CheckCircle2, TrendingUp, AlertTriangle, Lock, QrCode
 } from 'lucide-react';
 
 // IMPORT YOUR SUPABASE CLIENT
@@ -25,12 +26,19 @@ const MENU_ITEMS = [
 function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // States
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [passInput, setPassInput] = useState("");
   const [cart, setCart] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState('none');
+  
+  // QR States
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedTable, setSelectedTable] = useState("01");
+  const vercelUrl = "https://ziion-kitchenette.vercel.app/menu"; // Update if your URL changes
 
   const addToCart = (item) => {
     setCart(prev => {
@@ -64,6 +72,8 @@ function Layout() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans overflow-x-hidden">
+      
+      {/* SIDEBAR */}
       <aside className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col fixed h-full z-20 shadow-sm">
         <Link to="/" className="flex items-center gap-3 mb-10 group">
           <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:rotate-12"><Utensils className="text-white w-6 h-6" /></div>
@@ -83,6 +93,21 @@ function Layout() {
             <MessageSquare size={18} /> Feedback
           </Link>
         </nav>
+
+        {/* QR GENERATOR BUTTON */}
+        <div className="mt-auto bg-[#0F172A] p-6 rounded-[2rem] text-white">
+          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-4 text-orange-400">
+            <QrCode size={20} />
+          </div>
+          <h4 className="font-black text-sm mb-2">QR Ordering</h4>
+          <p className="text-[10px] text-white/40 mb-4 font-medium leading-relaxed">Generate table QR codes for instant ordering.</p>
+          <button 
+            onClick={() => setShowQRModal(true)}
+            className="w-full bg-orange-500 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow-lg active:scale-95"
+          >
+            Generate QR
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 ml-64 p-12 min-h-screen">
@@ -98,6 +123,7 @@ function Layout() {
           )}
         </AnimatePresence>
 
+        {/* FLOATING CART BUTTON */}
         <AnimatePresence>
           {cart.length > 0 && location.pathname === '/menu' && orderStatus === 'none' && !isDrawerOpen && (
             <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-10 right-10 z-40 bg-white border border-orange-100 rounded-[2.5rem] p-3 pl-6 pr-3 shadow-2xl flex items-center gap-8">
@@ -111,6 +137,7 @@ function Layout() {
         </AnimatePresence>
       </main>
 
+      {/* CART DRAWER */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -144,6 +171,40 @@ function Layout() {
         )}
       </AnimatePresence>
 
+      {/* QR MODAL */}
+      <AnimatePresence>
+        {showQRModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-[120]">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowQRModal(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-[400px] mx-4 text-center">
+              <button onClick={() => setShowQRModal(false)} className="absolute top-6 right-6 p-2 bg-slate-50 text-slate-400 hover:bg-slate-200 rounded-full transition-all"><X size={20} /></button>
+              <h3 className="text-2xl font-black mb-6">Table QR Code</h3>
+              
+              <div className="bg-slate-50 p-8 rounded-[2rem] flex flex-col items-center mb-8 border-2 border-dashed border-slate-200">
+                <QRCodeSVG value={`${vercelUrl}?table=${selectedTable}`} size={180} includeMargin={true} />
+                <p className="mt-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Table T-{selectedTable}</p>
+              </div>
+
+              <div className="flex gap-4 mb-8">
+                {["01", "02", "03", "04", "05"].map(t => (
+                  <button 
+                    key={t} 
+                    onClick={() => setSelectedTable(t)}
+                    className={`flex-1 py-3 rounded-xl font-black text-xs transition-all ${selectedTable === t ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => window.print()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-lg">
+                Print QR Code
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ADMIN LOGIN MODAL */}
       <AnimatePresence>
         {showLogin && (
           <div className="fixed inset-0 flex items-center justify-center z-[100]">
@@ -151,10 +212,10 @@ function Layout() {
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative z-[110] bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-[400px] mx-4 text-center">
               <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-6 mx-auto"><Lock size={28}/></div>
               <h3 className="text-2xl font-black mb-2 text-slate-900 text-center">Admin Access</h3>
-              <p className="text-slate-400 text-sm mb-8 text-center">Enter credentials to unlock the dashboard.</p>
+              <p className="text-slate-400 text-sm mb-8 text-center font-medium">Enter credentials to unlock the dashboard.</p>
               <form onSubmit={handleLogin} className="space-y-4">
-                <input type="password" placeholder="Password" value={passInput} onChange={(e) => setPassInput(e.target.value)} className="w-full bg-slate-50 border rounded-2xl p-4 outline-none focus:ring-4 focus:ring-orange-500/10 font-bold text-center" autoFocus />
-                <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-orange-500 transition-all shadow-lg">Verify Identity</button>
+                <input type="password" placeholder="Password" value={passInput} onChange={(e) => setPassInput(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:ring-4 focus:ring-orange-500/10 font-bold text-center" autoFocus />
+                <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-orange-500 transition-all shadow-lg active:scale-95">Verify Identity</button>
               </form>
             </motion.div>
           </div>
@@ -164,7 +225,7 @@ function Layout() {
   );
 }
 
-// --- SUB-COMPONENTS ---
+// --- VIEW COMPONENTS ---
 
 const Home = () => {
   const { setShowLogin, isAdmin } = useOutletContext();
@@ -182,7 +243,7 @@ const Home = () => {
         </Link>
         <button onClick={() => isAdmin ? navigate("/admin") : setShowLogin(true)} className="bg-[#0F172A] p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group text-left text-white">
           <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><LayoutDashboard size={28} className="text-orange-400" /></div>
-          <h3 className="text-3xl font-black mb-3">AI Forecast Dashboard</h3>
+          <h3 className="text-3xl font-black mb-3 text-white">AI Forecast Dashboard</h3>
           <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-orange-400">View Analytics <ArrowRight size={16} /></span>
         </button>
       </div>
@@ -198,15 +259,55 @@ const CustomerMenu = () => {
     <div className="max-w-6xl mx-auto pb-40 text-left">
       <header className="flex justify-between items-end mb-12"><div><h2 className="text-4xl font-black tracking-tight text-slate-900">Our Menu</h2><p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Fresh & Authentic</p></div><div className="relative w-80"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} /><input type="text" placeholder="Search..." value={search} onChange={(e)=>setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm shadow-sm" /></div></header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">{filtered.map(item => (
-        <div key={item.id} className="bg-white rounded-[2.5rem] border border-slate-100 p-2 shadow-sm hover:shadow-2xl transition-all group">
+        <div key={item.id} className="bg-white rounded-[2.5rem] border border-slate-100 p-2 shadow-sm hover:shadow-2xl transition-all group text-left">
           <div className="relative h-48 bg-slate-100 rounded-[2rem] overflow-hidden"><img src={item.img} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /></div>
           <div className="p-6"><div className="flex justify-between items-start mb-2"><h4 className="font-bold text-slate-800 text-lg">{item.name}</h4><div className="flex items-center gap-1 text-[10px] font-black text-orange-400 mt-1"><Star size={12} fill="currentColor" /> {item.rating}</div></div><p className="text-slate-400 text-[11px] mb-8 line-clamp-2">{item.desc}</p>
-          <div className="flex justify-between items-center pt-4 border-t border-slate-50"><span className="text-lg font-black text-slate-900">₱{item.price}</span><button onClick={() => addToCart(item)} className="bg-[#0F172A] text-white p-3 rounded-2xl hover:bg-orange-500 transition-all"><Plus size={18} /></button></div></div>
+          <div className="flex justify-between items-center pt-4 border-t border-slate-50"><span className="text-lg font-black text-slate-900">₱{item.price}</span><button onClick={() => addToCart(item)} className="bg-[#0F172A] text-white p-3 rounded-2xl hover:bg-orange-500 transition-all active:scale-95"><Plus size={18} /></button></div></div>
         </div>
       ))}</div>
     </div>
   );
 };
+
+const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const location = useLocation();
+  
+  // URL PARSING FOR QR ORDERING!
+  const queryParams = new URLSearchParams(location.search);
+  const tableNumber = queryParams.get('table') ? `T-${queryParams.get('table')}` : "T-Walk-in";
+
+  const handleConfirm = async () => {
+    setIsProcessing(true);
+    const { error } = await supabase.from('orders').insert([{ items: cart, total: subtotal, table_number: tableNumber, status: 'pending' }]);
+    if (!error) onConfirm();
+    setIsProcessing(false);
+  };
+  return (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="max-w-6xl mx-auto text-left">
+      <button onClick={onBack} className="flex items-center gap-2 text-slate-400 font-bold mb-10 hover:text-orange-500 transition-colors"><ChevronLeft size={16} /> Back to Menu</button>
+      <div className="flex gap-12 items-start"><div className="flex-1 space-y-16">
+        <section><h2 className="text-3xl font-black mb-8 text-slate-900">Payment Method</h2><div className="grid grid-cols-3 gap-6"><div className="p-8 rounded-[2.5rem] border-2 border-orange-500 bg-white"><Banknote size={24} className="mb-4 text-orange-500"/> <h4 className="font-bold text-sm text-slate-900">Pay at Cashier</h4></div></div></section>
+        <section><h2 className="text-3xl font-black mb-8 text-slate-900">Table Information</h2><div className="bg-white border p-10 rounded-[3rem] shadow-sm flex items-center gap-5">
+          <ShieldCheck size={28} className="text-emerald-500"/>
+          <div>
+            <h4 className="text-xl font-bold text-slate-900">Table {tableNumber.replace("T-", "")}</h4>
+            <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">{queryParams.get('table') ? "Verified via QR Link" : "No Table Detected"}</p>
+          </div>
+        </div></section>
+      </div><aside className="w-[400px] sticky top-12"><div className="bg-white border rounded-[3rem] p-10 shadow-2xl space-y-8"><h3 className="text-2xl font-black text-slate-900">Summary</h3><div className="flex justify-between items-center pt-8 border-t"><h3 className="text-4xl font-black text-slate-900">₱{subtotal}</h3></div><button onClick={handleConfirm} disabled={isProcessing} className="w-full bg-orange-500 text-white py-6 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all">{isProcessing ? <Loader2 className="animate-spin" /> : "Confirm Order"}</button></div></aside></div>
+    </motion.div>
+  );
+};
+
+const SuccessView = ({ onOrderMore }) => (
+  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 text-center max-w-2xl mx-auto">
+    <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-10"><CheckCircle2 size={48} /></div>
+    <h1 className="text-6xl font-black tracking-tighter mb-4 text-slate-900">Order Received!</h1>
+    <p className="text-slate-400 font-medium mb-10 text-lg">Your food is being prepared in the kitchen.</p>
+    <button onClick={onOrderMore} className="bg-slate-900 text-white px-10 py-5 rounded-2xl font-bold hover:bg-slate-800 shadow-xl transition-all active:scale-95">Back to Menu</button>
+  </motion.div>
+);
 
 const Kitchen = () => {
   const [dbOrders, setDbOrders] = useState([]);
@@ -225,10 +326,10 @@ const Kitchen = () => {
       <div className="flex items-center gap-6 mb-12"><div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div><div><h2 className="text-4xl font-black text-slate-900">Kitchen Display</h2><p className="text-emerald-500 font-bold text-xs animate-pulse">● Live WebSocket Connected</p></div></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         <AnimatePresence>{dbOrders.map(o => (
-          <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100">
-            <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase">ORDER #{o.id}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span></div><div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase">Live</div></div>
-            <div className="p-10 space-y-4 min-h-[200px]">{o.items?.map((i, idx) => (<p key={idx} className="text-xl font-bold text-slate-800">{i.qty}x {i.name}</p>))}</div>
-            <div className="p-6"><button onClick={() => handleMarkReady(o.id)} className="w-full py-5 rounded-[2.5rem] bg-emerald-500 text-white font-black text-xs uppercase">Mark as Ready</button></div>
+          <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100 flex flex-col">
+            <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase">ORDER #{o.id.substring(0,6)}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span></div><div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase">Live</div></div>
+            <div className="p-10 space-y-4 min-h-[200px] flex-1">{o.items?.map((i, idx) => (<p key={idx} className="text-xl font-bold text-slate-800">{i.qty}x {i.name}</p>))}</div>
+            <div className="p-6 mt-auto"><button onClick={() => handleMarkReady(o.id)} className="w-full py-5 rounded-[2.5rem] bg-emerald-500 text-white font-black text-xs uppercase hover:bg-emerald-600 active:scale-95 transition-all shadow-lg">Mark as Ready</button></div>
           </motion.div>
         ))}</AnimatePresence>
       </div>
@@ -254,7 +355,7 @@ const ForecastDashboard = () => {
     <div className="max-w-7xl mx-auto space-y-10 pb-20 text-left">
       <header className="flex justify-between items-start">
         <div><h2 className="text-4xl font-black tracking-tight text-slate-900">Forecast Dashboard</h2><p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">AI-powered recommendations</p></div>
-        <button className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg"><TrendingUp size={18} /> Export CSV</button>
+        <button className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 shadow-lg hover:bg-orange-600 transition-all"><TrendingUp size={18} /> Export CSV</button>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
@@ -276,11 +377,11 @@ const ForecastDashboard = () => {
           <table className="w-full text-left">
             <thead><tr className="text-[10px] font-black text-slate-300 uppercase border-b"><th className="pb-6">Item</th><th className="pb-6">Current</th><th className="pb-6">Predicted</th><th className="pb-6 text-center">Action</th></tr></thead>
             <tbody>{inventory.map(item => (
-              <tr key={item.id} className="border-b border-slate-50">
-                <td className="py-6 font-bold text-slate-800">{item.item_name}</td>
+              <tr key={item.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                <td className="py-6 font-bold text-slate-800 pl-4">{item.item_name}</td>
                 <td className="py-6 font-black text-slate-400">{item.current_stock}{item.unit}</td>
                 <td className="py-6 font-black text-emerald-500">↗ {item.predicted_demand}{item.unit}</td>
-                <td className="py-6 text-center">{item.current_stock < item.predicted_demand ? <button onClick={() => handleRestock(item)} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-orange-500 hover:text-white transition-all">Restock</button> : <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">Optimized</span>}</td>
+                <td className="py-6 text-center pr-4">{item.current_stock < item.predicted_demand ? <button onClick={() => handleRestock(item)} className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-orange-500 hover:text-white transition-all active:scale-95">Restock</button> : <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">Optimized</span>}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -314,14 +415,14 @@ const Feedback = () => {
         <div className="bg-[#0F172A] p-10 rounded-[3rem] text-white h-fit sticky top-10">
           <h3 className="text-2xl font-black mb-6">Rate your meal</h3>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div><p className="text-xs font-black uppercase text-slate-400 mb-3">Rating</p><div className="flex gap-2">{[1, 2, 3, 4, 5].map(n => (<button key={n} type="button" onClick={()=>setNewRating(n)} className={`w-10 h-10 rounded-xl font-black ${newRating >= n ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/40'}`}><Star size={16} fill={newRating >= n ? "currentColor" : "none"} /></button>))}</div></div>
-            <textarea value={newComment} onChange={(e)=>setNewComment(e.target.value)} placeholder="Your thoughts..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none h-32 text-white" required />
-            <button className="w-full bg-orange-500 py-4 rounded-2xl font-black">Submit Review</button>
+            <div><p className="text-xs font-black uppercase text-slate-400 mb-3">Rating</p><div className="flex gap-2">{[1, 2, 3, 4, 5].map(n => (<button key={n} type="button" onClick={()=>setNewRating(n)} className={`w-10 h-10 rounded-xl font-black ${newRating >= n ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/40'} transition-all`}><Star size={16} fill={newRating >= n ? "currentColor" : "none"} /></button>))}</div></div>
+            <textarea value={newComment} onChange={(e)=>setNewComment(e.target.value)} placeholder="Your thoughts..." className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none h-32 focus:ring-2 focus:ring-orange-500 transition-all text-white" required />
+            <button className="w-full bg-orange-500 py-4 rounded-2xl font-black hover:bg-orange-600 transition-all active:scale-95 shadow-lg">Submit Review</button>
           </form>
         </div>
         <div className="lg:col-span-2 space-y-6">{feedbacks.map(f => (
           <div key={f.id} className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
-            <div className="flex gap-1 mb-4">{[...Array(5)].map((_, i) => (<Star key={i} size={14} fill={i < f.rating ? "#f97316" : "none"} stroke={i < f.rating ? "#f97316" : "#cbd5e1"} />))}</div>
+            <div className="flex justify-between"><div className="flex gap-1 mb-4">{[...Array(5)].map((_, i) => (<Star key={i} size={14} fill={i < f.rating ? "#f97316" : "none"} stroke={i < f.rating ? "#f97316" : "#cbd5e1"} />))}</div><span className="text-[10px] font-black uppercase px-3 py-1 rounded-full bg-slate-50 text-slate-500 h-fit">{f.sentiment}</span></div>
             <p className="text-slate-700 font-medium leading-relaxed">"{f.comment}"</p>
           </div>
         ))}</div>
@@ -330,34 +431,7 @@ const Feedback = () => {
   );
 };
 
-const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const handleConfirm = async () => {
-    setIsProcessing(true);
-    const { error } = await supabase.from('orders').insert([{ items: cart, total: subtotal, table_number: 'T-04', status: 'pending' }]);
-    if (!error) onConfirm();
-    setIsProcessing(false);
-  };
-  return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="max-w-6xl mx-auto text-left">
-      <button onClick={onBack} className="flex items-center gap-2 text-slate-400 font-bold mb-10"><ChevronLeft size={16} /> Back to Menu</button>
-      <div className="flex gap-12 items-start"><div className="flex-1 space-y-16">
-        <section><h2 className="text-3xl font-black mb-8 text-slate-900">Payment Method</h2><div className="grid grid-cols-3 gap-6"><div className="p-8 rounded-[2.5rem] border-2 border-orange-500 bg-white"><Banknote size={24} className="mb-4 text-orange-500"/> <h4 className="font-bold text-sm text-slate-900">Pay at Cashier</h4></div></div></section>
-        <section><h2 className="text-3xl font-black mb-8 text-slate-900">Table Information</h2><div className="bg-white border p-10 rounded-[3rem] shadow-sm flex items-center gap-5"><ShieldCheck size={28} className="text-emerald-500"/><h4 className="text-xl font-bold text-slate-900">Table T-04</h4></div></section>
-      </div><aside className="w-[400px] sticky top-12"><div className="bg-white border rounded-[3rem] p-10 shadow-2xl space-y-8"><h3 className="text-2xl font-black text-slate-900">Summary</h3><div className="flex justify-between items-center pt-8 border-t"><h3 className="text-4xl font-black text-slate-900">₱{subtotal}</h3></div><button onClick={handleConfirm} disabled={isProcessing} className="w-full bg-orange-500 text-white py-6 rounded-3xl font-black text-lg shadow-xl active:scale-95 transition-all">{isProcessing ? <Loader2 className="animate-spin" /> : "Confirm Order"}</button></div></aside></div>
-    </motion.div>
-  );
-};
-
-const SuccessView = ({ onOrderMore }) => (
-  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 text-center max-w-2xl mx-auto">
-    <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-10"><CheckCircle2 size={48} /></div>
-    <h1 className="text-6xl font-black tracking-tighter mb-4 text-slate-900">Order Received!</h1>
-    <button onClick={onOrderMore} className="bg-slate-900 text-white px-10 py-5 rounded-2xl font-bold hover:bg-slate-800 shadow-xl">Back to Menu</button>
-  </motion.div>
-);
-
-// --- APP ---
+// --- APP ROOT ---
 export default function App() {
   return (
     <BrowserRouter>
