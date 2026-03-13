@@ -30,6 +30,7 @@ function Layout() {
   // States
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [userInput, setUserInput] = useState("");
   const [passInput, setPassInput] = useState("");
   const [cart, setCart] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -60,9 +61,10 @@ function Layout() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passInput === "admin123") {
+    if (userInput === "admin" && passInput === "admin123") {
       setIsAdmin(true);
       setShowLogin(false);
+      setUserInput("");
       setPassInput("");
       navigate("/admin");
     } else {
@@ -204,7 +206,7 @@ function Layout() {
         )}
       </AnimatePresence>
 
-      {/* ADMIN LOGIN MODAL */}
+      {/* ADMIN LOGIN MODAL WITH USERNAME */}
       <AnimatePresence>
         {showLogin && (
           <div className="fixed inset-0 flex items-center justify-center z-[100]">
@@ -214,7 +216,21 @@ function Layout() {
               <h3 className="text-2xl font-black mb-2 text-slate-900 text-center">Admin Access</h3>
               <p className="text-slate-400 text-sm mb-8 text-center font-medium">Enter credentials to unlock the dashboard.</p>
               <form onSubmit={handleLogin} className="space-y-4">
-                <input type="password" placeholder="Password" value={passInput} onChange={(e) => setPassInput(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:ring-4 focus:ring-orange-500/10 font-bold text-center" autoFocus />
+                <input 
+                  type="text" 
+                  placeholder="Username" 
+                  value={userInput} 
+                  onChange={(e) => setUserInput(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:ring-4 focus:ring-orange-500/10 font-bold text-center" 
+                  autoFocus 
+                />
+                <input 
+                  type="password" 
+                  placeholder="Password" 
+                  value={passInput} 
+                  onChange={(e) => setPassInput(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 outline-none focus:ring-4 focus:ring-orange-500/10 font-bold text-center" 
+                />
                 <button type="submit" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-orange-500 transition-all shadow-lg active:scale-95">Verify Identity</button>
               </form>
             </motion.div>
@@ -272,8 +288,6 @@ const CustomerMenu = () => {
 const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const location = useLocation();
-  
-  // URL PARSING FOR QR ORDERING!
   const queryParams = new URLSearchParams(location.search);
   const tableNumber = queryParams.get('table') ? `T-${queryParams.get('table')}` : "T-Walk-in";
 
@@ -313,6 +327,7 @@ const Kitchen = () => {
   const [dbOrders, setDbOrders] = useState([]);
   const fetchOrders = async () => { const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false }); setDbOrders(data || []); };
   const handleMarkReady = async (id) => { await supabase.from('orders').delete().eq('id', id); };
+  
   useEffect(() => {
     fetchOrders();
     const channel = supabase.channel('kitchen').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
@@ -321,13 +336,21 @@ const Kitchen = () => {
     }).subscribe();
     return () => supabase.removeChannel(channel);
   }, []);
+
   return (
     <div className="max-w-6xl mx-auto text-left">
       <div className="flex items-center gap-6 mb-12"><div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div><div><h2 className="text-4xl font-black text-slate-900">Kitchen Display</h2><p className="text-emerald-500 font-bold text-xs animate-pulse">● Live WebSocket Connected</p></div></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         <AnimatePresence>{dbOrders.map(o => (
           <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100 flex flex-col">
-            <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase">ORDER #{o.id.substring(0,6)}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span></div><div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase">Live</div></div>
+            <div className="p-10 border-b flex justify-between items-center">
+              <div>
+                {/* FIX: Cast ID to string safely before substring to prevent app crash */}
+                <h4 className="text-[10px] font-black text-slate-300 uppercase">ORDER #{String(o.id).slice(0,6)}</h4>
+                <span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full mt-2 inline-block">{o.table_number}</span>
+              </div>
+              <div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase">Live</div>
+            </div>
             <div className="p-10 space-y-4 min-h-[200px] flex-1">{o.items?.map((i, idx) => (<p key={idx} className="text-xl font-bold text-slate-800">{i.qty}x {i.name}</p>))}</div>
             <div className="p-6 mt-auto"><button onClick={() => handleMarkReady(o.id)} className="w-full py-5 rounded-[2.5rem] bg-emerald-500 text-white font-black text-xs uppercase hover:bg-emerald-600 active:scale-95 transition-all shadow-lg">Mark as Ready</button></div>
           </motion.div>
