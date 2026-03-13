@@ -3,10 +3,10 @@ import { BrowserRouter, Routes, Route, Link, useLocation, Outlet, useOutletConte
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Utensils, LayoutDashboard, ChefHat, Package, MessageSquare, 
-  Store, QrCode, Search, Star, Plus, Minus, Clock, 
+  Store, Search, Star, Plus, Minus, Clock, 
   ArrowRight, ShoppingCart, ChevronRight, X, Trash2,
-  ChevronLeft, CreditCard, Wallet, Banknote, ShieldCheck,
-  Loader2, CheckCircle2, ChevronDown, TrendingUp
+  ChevronLeft, Banknote, ShieldCheck,
+  Loader2, CheckCircle2, TrendingUp
 } from 'lucide-react';
 
 // IMPORT YOUR SUPABASE CLIENT
@@ -165,8 +165,7 @@ const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
       if (error) throw error;
       onConfirm();
     } catch (err) {
-      console.error(err);
-      alert("Error: " + err.message);
+      alert("Checkout Error: " + err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -194,7 +193,7 @@ const SuccessView = ({ onOrderMore }) => (
   </motion.div>
 );
 
-// --- KITCHEN COMPONENT (AUTO-SYNCING) ---
+// --- KITCHEN COMPONENT (AUTO-SYNCING + DEBUGGING) ---
 const Kitchen = () => {
   const [dbOrders, setDbOrders] = useState([]);
 
@@ -204,15 +203,20 @@ const Kitchen = () => {
   };
 
   const handleMarkReady = async (orderId) => {
+    console.log("Attempting to delete order ID:", orderId);
     const { error } = await supabase.from('orders').delete().eq('id', orderId);
-    if (error) console.error("Delete Error:", error.message);
-    // UI updates automatically via the DELETE listener below
+    
+    if (error) {
+      alert("Database error: " + error.message);
+    } else {
+      // Local removal in case WebSockets are slow
+      setDbOrders(prev => prev.filter(order => order.id !== orderId));
+    }
   };
 
   useEffect(() => {
     fetchOrders();
 
-    // The "Magic" WebSocket Listener
     const channel = supabase.channel('kitchen-updates')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'orders' }, 
@@ -220,6 +224,7 @@ const Kitchen = () => {
           if (payload.eventType === 'INSERT') {
             setDbOrders(prev => [payload.new, ...prev]);
           } else if (payload.eventType === 'DELETE') {
+            // Check if deleted item is still in state
             setDbOrders(prev => prev.filter(order => order.id !== payload.old.id));
           }
         }
@@ -281,7 +286,7 @@ const Home = () => (
   <div className="max-w-6xl mx-auto text-center">
     <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase border border-orange-100 mb-6"><TrendingUp size={12} /> Smart Digital Canteen System</div>
     <h1 className="text-7xl font-black text-slate-900 tracking-tighter mb-4 leading-tight">Ziion J's <span className="text-orange-500">Kitchenette</span></h1>
-    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg leading-relaxed text-balance">Real-time canteen automation for Devoops Team.</p>
+    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg leading-relaxed text-balance text-center">Real-time canteen automation for Devoops Team.</p>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
       <Link to="/menu" className="bg-white border p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group">
          <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><Utensils size={28} className="text-orange-500" /></div>
