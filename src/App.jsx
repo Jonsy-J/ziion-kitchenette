@@ -193,7 +193,6 @@ const SuccessView = ({ onOrderMore }) => (
   </motion.div>
 );
 
-// --- KITCHEN COMPONENT (AUTO-SYNCING + DEBUGGING) ---
 const Kitchen = () => {
   const [dbOrders, setDbOrders] = useState([]);
 
@@ -203,80 +202,89 @@ const Kitchen = () => {
   };
 
   const handleMarkReady = async (orderId) => {
-    console.log("Attempting to delete order ID:", orderId);
     const { error } = await supabase.from('orders').delete().eq('id', orderId);
-    
-    if (error) {
-      alert("Database error: " + error.message);
-    } else {
-      // Local removal in case WebSockets are slow
-      setDbOrders(prev => prev.filter(order => order.id !== orderId));
-    }
+    if (error) alert("Database error: " + error.message);
   };
 
   useEffect(() => {
     fetchOrders();
-
     const channel = supabase.channel('kitchen-updates')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'orders' }, 
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setDbOrders(prev => [payload.new, ...prev]);
-          } else if (payload.eventType === 'DELETE') {
-            // Check if deleted item is still in state
-            setDbOrders(prev => prev.filter(order => order.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        if (payload.eventType === 'INSERT') setDbOrders(prev => [payload.new, ...prev]);
+        else if (payload.eventType === 'DELETE') setDbOrders(prev => prev.filter(order => order.id !== payload.old.id));
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center gap-6 mb-12">
-        <div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div>
-        <div>
-          <h2 className="text-4xl font-black tracking-tight">Kitchen Display</h2>
-          <p className="text-emerald-500 font-bold text-xs uppercase animate-pulse">● Live WebSocket Connected</p>
-        </div>
-      </div>
+      <div className="flex items-center gap-6 mb-12"><div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div><div><h2 className="text-4xl font-black tracking-tight">Kitchen Display</h2><p className="text-emerald-500 font-bold text-xs uppercase animate-pulse">● Live WebSocket Connected</p></div></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         <AnimatePresence>
           {dbOrders.map((o) => (
-            <motion.div 
-              layout
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-              key={o.id} 
-              className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100"
-            >
-              <div className="p-10 border-b flex justify-between items-center">
-                <div>
-                  <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ORDER #{o.id}</h4>
-                  <span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span>
-                </div>
-                <div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black tracking-widest">LIVE</div>
-              </div>
-              <div className="p-10 space-y-4 min-h-[200px]">
-                {o.items?.map((item, idx) => (
-                  <p key={idx} className="text-xl font-bold text-slate-800">{item.qty}x {item.name}</p>
-                ))}
-              </div>
-              <div className="p-6">
-                <button 
-                  onClick={() => handleMarkReady(o.id)}
-                  className="w-full py-5 rounded-[2.5rem] bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all text-white font-black text-xs uppercase tracking-widest"
-                >
-                  Mark as Ready
-                </button>
-              </div>
+            <motion.div layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100">
+              <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ORDER #{o.id}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span></div><div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black tracking-widest">LIVE</div></div>
+              <div className="p-10 space-y-4 min-h-[200px]">{o.items?.map((item, idx) => (<p key={idx} className="text-xl font-bold text-slate-800">{item.qty}x {item.name}</p>))}</div>
+              <div className="p-6"><button onClick={() => handleMarkReady(o.id)} className="w-full py-5 rounded-[2.5rem] bg-emerald-500 text-white font-black text-xs uppercase tracking-widest">Mark as Ready</button></div>
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+const Feedback = () => {
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [newComment, setNewComment] = useState("");
+  const [newRating, setNewRating] = useState(5);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchFeedback = async () => {
+    const { data } = await supabase.from('feedback').select('*').order('created_at', { ascending: false });
+    setFeedbacks(data || []);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const sentiment = newRating >= 4 ? 'positive' : newRating === 3 ? 'neutral' : 'negative';
+    const { error } = await supabase.from('feedback').insert([{ rating: newRating, comment: newComment, sentiment }]);
+    if (!error) { setNewComment(""); setNewRating(5); fetchFeedback(); }
+    setIsSubmitting(false);
+  };
+
+  useEffect(() => {
+    fetchFeedback();
+    const channel = supabase.channel('fb-sync').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feedback' }, () => fetchFeedback()).subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const avgRating = feedbacks.length > 0 ? (feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length).toFixed(1) : 0;
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-12 pb-20">
+      <header className="flex justify-between items-center">
+        <div><h2 className="text-4xl font-black tracking-tight">Customer Feedback</h2><p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Voice of the Customer</p></div>
+        <div className="bg-white p-6 rounded-[2rem] border shadow-sm flex items-center gap-6"><div className="text-center px-4 border-r"><p className="text-3xl font-black text-orange-500">{avgRating}</p><p className="text-[10px] font-black uppercase text-slate-400 text-center">Avg Rating</p></div><div className="text-center px-4"><p className="text-3xl font-black text-slate-900">{feedbacks.length}</p><p className="text-[10px] font-black uppercase text-slate-400 text-center">Reviews</p></div></div>
+      </header>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="bg-[#0F172A] p-10 rounded-[3rem] text-white h-fit sticky top-10">
+          <h3 className="text-2xl font-black mb-6">Rate your meal</h3>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div><p className="text-xs font-black uppercase text-slate-400 mb-3">Rating</p><div className="flex gap-2">{[1, 2, 3, 4, 5].map(num => (<button key={num} type="button" onClick={() => setNewRating(num)} className={`w-10 h-10 rounded-xl font-black transition-all ${newRating >= num ? 'bg-orange-500 text-white' : 'bg-white/10 text-white/40'}`}><Star size={16} fill={newRating >= num ? "currentColor" : "none"} /></button>))}</div></div>
+            <div><p className="text-xs font-black uppercase text-slate-400 mb-3">Comment</p><textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="How was the food?" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-orange-500 outline-none h-32" required /></div>
+            <button disabled={isSubmitting} className="w-full bg-orange-500 py-4 rounded-2xl font-black hover:bg-orange-600 transition-all flex justify-center items-center">{isSubmitting ? <Loader2 className="animate-spin" /> : "Submit Review"}</button>
+          </form>
+        </div>
+        <div className="lg:col-span-2 space-y-6">
+          {feedbacks.map((f) => (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={f.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <div className="flex justify-between items-start mb-4"><div className="flex gap-1">{[...Array(5)].map((_, i) => (<Star key={i} size={14} fill={i < f.rating ? "#f97316" : "none"} stroke={i < f.rating ? "#f97316" : "#cbd5e1"} />))}</div><span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${f.sentiment === 'positive' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500'}`}>{f.sentiment}</span></div>
+              <p className="text-slate-700 font-medium leading-relaxed">"{f.comment}"</p><p className="text-[10px] text-slate-300 font-black mt-6 uppercase tracking-widest">{new Date(f.created_at).toLocaleDateString()}</p>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -286,20 +294,10 @@ const Home = () => (
   <div className="max-w-6xl mx-auto text-center">
     <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase border border-orange-100 mb-6"><TrendingUp size={12} /> Smart Digital Canteen System</div>
     <h1 className="text-7xl font-black text-slate-900 tracking-tighter mb-4 leading-tight">Ziion J's <span className="text-orange-500">Kitchenette</span></h1>
-    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg leading-relaxed text-balance text-center">Real-time canteen automation for Devoops Team.</p>
+    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg leading-relaxed text-balance">Real-time canteen automation for Devoops Team.</p>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
-      <Link to="/menu" className="bg-white border p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group">
-         <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><Utensils size={28} className="text-orange-500" /></div>
-         <h3 className="text-3xl font-black mb-3 text-balance">Customer Perspective</h3>
-         <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed text-balance">Browse menu and place real orders via Supabase Cloud.</p>
-         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-500 transition-colors">Start Ordering <ArrowRight size={16} /></span>
-      </Link>
-      <Link to="/kitchen" className="bg-[#0F172A] p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group text-white">
-         <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><ChefHat size={28} className="text-orange-400" /></div>
-         <h3 className="text-3xl font-black mb-3 text-balance">Kitchen Operations</h3>
-         <p className="text-white/40 font-medium text-sm mb-10 leading-relaxed text-balance">Live queue management with real-time WebSocket sync.</p>
-         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-400 transition-colors">View Live Queue <ArrowRight size={16} /></span>
-      </Link>
+      <Link to="/menu" className="bg-white border p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group"><div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><Utensils size={28} className="text-orange-500" /></div><h3 className="text-3xl font-black mb-3 text-balance">Customer Perspective</h3><span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-500">Start Ordering <ArrowRight size={16} /></span></Link>
+      <Link to="/kitchen" className="bg-[#0F172A] p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group text-white"><div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><ChefHat size={28} className="text-orange-400" /></div><h3 className="text-3xl font-black mb-3 text-balance">Kitchen Operations</h3><span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-400">View Live Queue <ArrowRight size={16} /></span></Link>
     </div>
   </div>
 );
@@ -313,6 +311,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="menu" element={<CustomerMenu />} />
           <Route path="kitchen" element={<Kitchen />} />
+          <Route path="feedback" element={<Feedback />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>
