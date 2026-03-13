@@ -43,7 +43,7 @@ function Layout() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passInput === "devoops2026") {
+    if (passInput === "admin123") {
       setIsAdmin(true);
       setShowLogin(false);
       navigate("/admin");
