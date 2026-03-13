@@ -12,7 +12,7 @@ import {
 // IMPORT YOUR SUPABASE CLIENT
 import { supabase } from './supabaseClient';
 
-// --- MOCK DATA (Local Images) ---
+// --- MOCK DATA ---
 const MENU_ITEMS = [
   { id: '1', name: 'Pork Adobo', category: 'Main Dish', price: 85, rating: 4.8, popular: true, desc: 'Classic Filipino pork stew braised in soy sauce, vinegar, and garlic.', img: '/images/adobo.jpg' },
   { id: '2', name: 'Sinigang na Baboy', category: 'Main Dish', price: 95, rating: 4.6, popular: false, desc: 'Sour soup with pork, vegetables, and tamarind broth.', img: '/images/sinigang.png' },
@@ -75,7 +75,6 @@ function Layout() {
           )}
         </AnimatePresence>
 
-        {/* Floating Cart Button */}
         <AnimatePresence>
           {cart.length > 0 && location.pathname === '/menu' && orderStatus === 'none' && !isDrawerOpen && (
             <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-10 right-10 z-40 bg-white border border-orange-100 rounded-[2.5rem] p-3 pl-6 pr-3 shadow-2xl flex items-center gap-8 ring-4 ring-orange-500/5">
@@ -89,7 +88,6 @@ function Layout() {
         </AnimatePresence>
       </main>
 
-      {/* Cart Drawer */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -155,28 +153,20 @@ const CustomerMenu = () => {
   );
 };
 
-// --- CHECKOUT VIEW (WITH SUPABASE INTEGRATION) ---
 const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleConfirm = async () => {
     setIsProcessing(true);
     try {
-      // SAVE TO SUPABASE
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('orders')
-        .insert([{ 
-          items: cart, 
-          total: subtotal, 
-          table_number: 'T-04', 
-          status: 'pending' 
-        }]);
-
+        .insert([{ items: cart, total: subtotal, table_number: 'T-04', status: 'pending' }]);
       if (error) throw error;
-      onConfirm(); // Success screen
+      onConfirm();
     } catch (err) {
       console.error(err);
-      alert("Error connecting to Supabase: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setIsProcessing(false);
     }
@@ -187,10 +177,10 @@ const CheckoutView = ({ cart, subtotal, onBack, onConfirm }) => {
       <button onClick={onBack} className="flex items-center gap-2 text-slate-400 font-bold mb-10"><ChevronLeft size={16} /> Back to Menu</button>
       <div className="flex gap-12 items-start">
         <div className="flex-1 space-y-16">
-          <section><h2 className="text-3xl font-black mb-8">Payment Method</h2><div className="grid grid-cols-3 gap-6"><div className="p-8 rounded-[2.5rem] border-2 border-orange-500 bg-white"><Banknote size={24} className="mb-4 text-orange-500"/> <h4 className="font-bold text-sm">Pay at Cashier</h4><p className="text-[10px] text-orange-500 font-bold uppercase">Default</p></div></div></section>
-          <section><h2 className="text-3xl font-black mb-8">Table Information</h2><div className="bg-white border p-10 rounded-[3rem] shadow-sm flex items-center gap-5"><ShieldCheck size={28} className="text-emerald-500"/><div><h4 className="text-xl font-bold">Table T-04</h4><p className="text-slate-400 text-sm">Automatically detected via QR scan</p></div></div></section>
+          <section><h2 className="text-3xl font-black mb-8">Payment Method</h2><div className="grid grid-cols-3 gap-6"><div className="p-8 rounded-[2.5rem] border-2 border-orange-500 bg-white"><Banknote size={24} className="mb-4 text-orange-500"/> <h4 className="font-bold text-sm">Pay at Cashier</h4></div></div></section>
+          <section><h2 className="text-3xl font-black mb-8">Table Information</h2><div className="bg-white border p-10 rounded-[3rem] shadow-sm flex items-center gap-5"><ShieldCheck size={28} className="text-emerald-500"/><div><h4 className="text-xl font-bold">Table T-04</h4></div></div></section>
         </div>
-        <aside className="w-[400px] sticky top-12"><div className="bg-white border rounded-[3rem] p-10 shadow-2xl space-y-8"><h3 className="text-2xl font-black">Summary</h3><div className="flex justify-between items-center pt-8 border-t"><h3 className="text-4xl font-black">₱{subtotal}</h3></div><button onClick={handleConfirm} disabled={isProcessing} className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-400 text-white py-6 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl transition-all">{isProcessing ? <><Loader2 className="animate-spin" size={20}/> Processing...</> : <>Confirm Order <ArrowRight size={20}/></>}</button></div></aside>
+        <aside className="w-[400px] sticky top-12"><div className="bg-white border rounded-[3rem] p-10 shadow-2xl space-y-8"><h3 className="text-2xl font-black">Summary</h3><div className="flex justify-between items-center pt-8 border-t"><h3 className="text-4xl font-black">₱{subtotal}</h3></div><button onClick={handleConfirm} disabled={isProcessing} className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-400 text-white py-6 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl transition-all">{isProcessing ? <Loader2 className="animate-spin" /> : "Confirm Order"}</button></div></aside>
       </div>
     </motion.div>
   );
@@ -200,36 +190,40 @@ const SuccessView = ({ onOrderMore }) => (
   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 text-center max-w-2xl mx-auto">
     <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-10"><CheckCircle2 size={48} /></div>
     <h1 className="text-6xl font-black tracking-tighter mb-4">Order Received!</h1>
-    <p className="text-slate-400 font-medium mb-12">Your order <span className="text-slate-900 font-bold">#ZJ-9921</span> has been sent to the kitchen. You can see it on the Kitchen Display now.</p>
     <button onClick={onOrderMore} className="bg-[#0F172A] text-white px-10 py-5 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl">Back to Menu</button>
   </motion.div>
 );
 
+// --- UPDATED KITCHEN WITH REALTIME ---
 const Kitchen = () => {
   const [dbOrders, setDbOrders] = useState([]);
 
-  // Fetch real orders from Supabase
+  const fetchOrders = async () => {
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+    setDbOrders(data || []);
+  };
+
   useEffect(() => {
-    const fetchOrders = async () => {
-      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      setDbOrders(data || []);
-    };
     fetchOrders();
-    // OPTIONAL: Realtime updates (Can be added later)
+    const channel = supabase.channel('realtime-orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
+        setDbOrders(prev => [payload.new, ...prev]);
+      }).subscribe();
+    return () => supabase.removeChannel(channel);
   }, []);
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center gap-6 mb-12"><div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div><div><h2 className="text-4xl font-black tracking-tight">Kitchen Display</h2><p className="text-slate-400 font-bold mt-2 text-xs tracking-widest uppercase">Live Cloud Data</p></div></div>
+      <div className="flex items-center gap-6 mb-12"><div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl"><ChefHat size={36}/></div><div><h2 className="text-4xl font-black tracking-tight">Kitchen Display</h2><p className="text-emerald-500 font-bold text-xs uppercase animate-pulse">● Live WebSocket Connected</p></div></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         {dbOrders.map((o) => (
-          <div key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100">
-            <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ORDER #{o.id}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full uppercase tracking-widest">{o.table_number}</span></div><div className="bg-red-500 text-white px-5 py-3 rounded-[1.5rem] text-xs font-black"><Clock size={14}/> Active</div></div>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} key={o.id} className="bg-white border-2 rounded-[3.5rem] overflow-hidden shadow-sm border-orange-100">
+            <div className="p-10 border-b flex justify-between items-center"><div><h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">ORDER #{o.id}</h4><span className="bg-slate-900 text-white text-[11px] font-black px-5 py-2 rounded-full">{o.table_number}</span></div><div className="bg-red-500 text-white px-4 py-2 rounded-2xl text-[10px] font-black tracking-widest">LIVE</div></div>
             <div className="p-10 space-y-4 min-h-[200px]">
               {o.items?.map((item, idx) => (<p key={idx} className="text-xl font-bold text-slate-800">{item.qty}x {item.name}</p>))}
             </div>
             <div className="p-6"><button className="w-full py-5 rounded-[2.5rem] bg-emerald-500 text-white font-black text-xs uppercase tracking-widest">Mark as Ready</button></div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -240,25 +234,22 @@ const Home = () => (
   <div className="max-w-6xl mx-auto text-center">
     <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase border border-orange-100 mb-6"><TrendingUp size={12} /> Smart Digital Canteen System</div>
     <h1 className="text-7xl font-black text-slate-900 tracking-tighter mb-4 leading-tight">Ziion J's <span className="text-orange-500">Kitchenette</span></h1>
-    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg leading-relaxed text-balance">Optimizing kitchen operations through data-driven forecasting and intelligent inventory management.</p>
+    <p className="text-slate-400 font-medium mb-20 max-w-2xl mx-auto text-lg">Real-time canteen automation for Devoops Team.</p>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
       <Link to="/menu" className="bg-white border p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group">
          <div className="bg-slate-50 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><Utensils size={28} className="text-orange-500" /></div>
-         <h3 className="text-3xl font-black mb-3 text-balance">Customer Perspective</h3>
-         <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed">Browse menu, place real orders via Supabase Cloud, and get real-time status.</p>
-         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-500 transition-colors">Start Ordering <ArrowRight size={16} /></span>
+         <h3 className="text-3xl font-black mb-3">Customer Perspective</h3>
+         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-500">Start Ordering <ArrowRight size={16} /></span>
       </Link>
       <Link to="/kitchen" className="bg-[#0F172A] p-12 rounded-[3.5rem] shadow-sm hover:shadow-2xl transition-all group text-white">
          <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8"><ChefHat size={28} className="text-orange-400" /></div>
          <h3 className="text-3xl font-black mb-3 text-balance">Kitchen Operations</h3>
-         <p className="text-white/40 font-medium text-sm mb-10 leading-relaxed text-balance">Live queue management for staff. Orders sync automatically from the cloud database.</p>
-         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-400 transition-colors">View Live Queue <ArrowRight size={16} /></span>
+         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-widest group-hover:text-orange-400">View Live Queue <ArrowRight size={16} /></span>
       </Link>
     </div>
   </div>
 );
 
-// --- APP ROUTING ---
 export default function App() {
   return (
     <BrowserRouter>
